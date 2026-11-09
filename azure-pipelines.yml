@@ -1,9 +1,9 @@
 trigger:
   branches:
-    include: [main]
+    include: [master]
 pr:
   branches:
-    include: [main]
+    include: [master]
 
 parameters:
   - name: deployAzure
@@ -107,7 +107,7 @@ stages:
   - ${{ if eq(parameters.deployAzure, true) }}:
     - stage: Deploy
       dependsOn: Container
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       jobs:
         - deployment: Release
           # Configure approvals/checks on this Azure DevOps environment outside YAML.
