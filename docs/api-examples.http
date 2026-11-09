@@ -1,0 +1,74 @@
+# Use a cookie-aware HTTPS client. GET csrf first, then copy the XSRF-TOKEN cookie
+# into X-XSRF-TOKEN for every unsafe request. Re-fetch csrf after login/logout.
+# Never paste real authentication or recovery tokens into committed files.
+@base = https://localhost:7043
+@csrf = replace-locally-from-XSRF-TOKEN-cookie
+
+GET {{base}}/api/auth/csrf
+
+### Login: supply the locally generated development password using your client's secret store.
+# POST /api/auth/login { "email": "customer@orders.local", "password": "<local secret>" }
+# POST /api/auth/register uses the same body. Registration never accepts a role.
+
+GET {{base}}/api/auth/me
+
+### Refresh: token comes only from HttpOnly cookie, never JSON
+POST {{base}}/api/auth/refresh
+X-XSRF-TOKEN: {{csrf}}
+Content-Type: application/json
+
+{}
+
+### Search / paging / sort
+GET {{base}}/api/products?search=KEY&pageNumber=1&pageSize=12&sort=price
+
+### Manager/Admin product creation
+POST {{base}}/api/products
+X-XSRF-TOKEN: {{csrf}}
+Content-Type: application/json
+
+{ "name": "Desk Light", "sku": "LIGHT-001", "description": "Adjustable desk light", "price": 999.50, "stockQuantity": 20 }
+
+### Update product: PUT /api/products/{id}, same body plus current rowVersion
+# Deactivate: DELETE /api/products/{id}?rowVersion=<URL-encoded current rowVersion>
+# Admin list including inactive: GET /api/products/admin
+
+### Create an order, prices supplied by server
+POST {{base}}/api/orders
+X-XSRF-TOKEN: {{csrf}}
+Content-Type: application/json
+
+{ "items": [ { "productId": 1, "quantity": 2 }, { "productId": 2, "quantity": 1 } ] }
+
+### List own orders (staff can see all)
+GET {{base}}/api/orders?pageNumber=1&pageSize=12&sort=newest&status=Draft
+
+### Nested item routes require parent-order ownership or Admin
+# GET /api/orders/{id}
+# GET /api/orders/{id}/items
+# POST /api/orders/{id}/items { "productId": 2, "quantity": 1, "rowVersion": "<current parent version>" }
+# PUT /api/orders/{id}/items/{itemId} { "quantity": 3, "rowVersion": "<current parent version>" }
+# DELETE /api/orders/{id}/items/{itemId}?rowVersion=<URL-encoded current parent version>
+# POST /api/orders/{id}/cancel { "rowVersion": "<current parent version>" }
+# PUT /api/orders/{id}/status { "status": "Confirmed", "rowVersion": "<current parent version>" }
+
+### Admin-only operations
+GET {{base}}/api/admin/users?search=customer&pageNumber=1&pageSize=12
+
+GET {{base}}/api/admin/roles
+
+# PUT /api/admin/users/{id}/role { "role": "Manager" }
+# PUT /api/admin/users/{id}/lock { "locked": true }
+
+### Account operations (all POST, all require CSRF)
+# /api/auth/resend-confirmation { "email": "..." }
+# /api/auth/confirm-email { "email": "...", "token": "<from private mailbox link>" }
+# /api/auth/forgot-password { "email": "..." }
+# /api/auth/reset-password { "email": "...", "token": "<from private mailbox link>", "password": "<new strong password>" }
+# /api/auth/change-password { "currentPassword": "<secret>", "newPassword": "<new strong password>" }
+
+POST {{base}}/api/auth/logout
+X-XSRF-TOKEN: {{csrf}}
+Content-Type: application/json
+
+{}

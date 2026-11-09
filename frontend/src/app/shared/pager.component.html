@@ -1,0 +1,10 @@
+<nav class="pagination" aria-label="Pages">
+  <span>Page {{ page() }} / {{ pages() }}</span>
+  <div>
+    <button [disabled]="page() <= 1" (click)="change.emit(page() - 1)">
+      Previous</button
+    ><button [disabled]="page() >= pages()" (click)="change.emit(page() + 1)">
+      Next
+    </button>
+  </div>
+</nav>

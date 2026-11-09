@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": { "value": "replace-orders-app" },
+    "acrName": { "value": "replaceordersacr" },
+    "keyVaultName": { "value": "replace-orders-kv" },
+    "integrationSubnetId": { "value": "/subscriptions/REPLACE/resourceGroups/REPLACE/providers/Microsoft.Network/virtualNetworks/REPLACE/subnets/app-integration" },
+    "trustedProxyNetworks": { "value": ["REPLACE-WITH-VERIFIED-PROXY-CIDR"] },
+    "stagingAllowedCidrs": { "value": ["REPLACE-WITH-RELEASE-AGENT-EGRESS-CIDR"] },
+    "smtpHost": { "value": "smtp.example.com" },
+    "smtpFrom": { "value": "orders@example.com" },
+    "smtpUsername": { "value": "orders@example.com" },
+    "seqServerUrl": { "value": "https://seq.example.com" },
+    "vaultReferences": { "value": {
+      "ConnectionStrings__Orders": "https://REPLACE.vault.azure.net/secrets/orders-runtime-connection/",
+      "ConnectionStrings__Logs": "https://REPLACE.vault.azure.net/secrets/orders-logs-connection/",
+      "Jwt__SigningKey": "https://REPLACE.vault.azure.net/secrets/orders-jwt-key/",
+      "DataProtection__CertificateBase64": "https://REPLACE.vault.azure.net/secrets/orders-dp-certificate/",
+      "DataProtection__CertificatePassword": "https://REPLACE.vault.azure.net/secrets/orders-dp-password/",
+      "Smtp__Password": "https://REPLACE.vault.azure.net/secrets/orders-smtp-password/",
+      "Observability__Seq__ApiKey": "https://REPLACE.vault.azure.net/secrets/orders-seq-api-key/"
+    } }
+  }
+}

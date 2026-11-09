@@ -1,0 +1,33 @@
+<header>
+  <a routerLink="/products" class="brand"
+    ><span class="mark">O</span> Order Management</a
+  >
+  <nav class="main-nav">
+    <a routerLink="/products">Catalog</a>
+    @if (auth.signedIn()) {
+      <a routerLink="/orders">Orders</a
+      ><a *appPermission="'ManageProducts'" routerLink="/admin/products"
+        >Products admin</a
+      ><a *appPermission="'Admin'" routerLink="/admin/users">Users</a
+      ><a routerLink="/account/change-password">Password</a
+      ><span class="muted">{{ auth.user()?.email }}</span
+      ><button (click)="logout()">Sign out</button>
+    } @else {
+      <a routerLink="/account/login">Sign in</a
+      ><a routerLink="/account/register">Register</a>
+    }
+  </nav>
+</header>
+@if (http.pending()) {
+  <div class="progress" role="status" aria-label="Loading"></div>
+}
+<main>
+  @if (error()) {
+    <p role="alert" class="notice error">{{ error() }}</p>
+  }
+  <router-outlet />
+</main>
+<footer>
+  ASP.NET Core 6 · Angular 21 · SQL Server
+  <span>Order Management Practice Lab</span>
+</footer>

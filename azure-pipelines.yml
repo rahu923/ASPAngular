@@ -1,0 +1,168 @@
+trigger:
+  branches:
+    include: [main]
+pr:
+  branches:
+    include: [main]
+
+parameters:
+  - name: deployAzure
+    type: boolean
+    default: false
+  - name: azureServiceConnection
+    type: string
+    default: orders-azure-wif
+
+variables:
+  - name: imageTag
+    value: $(Build.SourceVersion)
+  - ${{ if eq(parameters.deployAzure, true) }}:
+    - group: orders-production
+
+stages:
+  # Independent test jobs can run on agents suited to their dependencies (LocalDB versus Node).
+  - stage: Test
+    jobs:
+      - job: Backend
+        pool: {vmImage: windows-2022}
+        steps:
+          - task: UseDotNet@2
+            inputs: {useGlobalJson: true}
+          - powershell: |
+              SqlLocalDB start MSSQLLocalDB
+              dotnet test OrderManagement.sln -c Release --logger trx --results-directory "$(Common.TestResultsDirectory)"
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            displayName: SQL Server integration tests
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: '$(Common.TestResultsDirectory)/*.trx'
+              failTaskOnFailedTests: true
+      - job: Frontend
+        pool: {vmImage: ubuntu-24.04}
+        steps:
+          - task: NodeTool@0
+            inputs: {versionSpec: 22.18.0}
+          - script: npm ci && npm test && npm run build
+            workingDirectory: frontend
+            displayName: Angular tests and production build
+
+  - stage: Container
+    dependsOn: Test
+    jobs:
+      - job: BuildAndSmoke
+        pool: {vmImage: ubuntu-24.04}
+        steps:
+          - task: UseDotNet@2
+            inputs: {useGlobalJson: true}
+          - task: NodeTool@0
+            inputs: {versionSpec: 22.18.0}
+          - pwsh: ./scripts/Initialize-Docker.ps1
+            displayName: Generate ephemeral CI secrets and development certificate
+          - bash: chmod a+r .certs/localhost.pfx
+            displayName: Allow non-root container to read password-encrypted development PFX
+          - bash: |
+              set -euo pipefail
+              docker compose config --quiet
+              docker compose up --build --detach --wait --wait-timeout 240
+            env: {COMPOSE_PROJECT_NAME: 'orders-ci-$(Build.BuildId)'}
+            displayName: Build and boot complete stack
+          - pwsh: ./scripts/Verify-Container.ps1
+            displayName: Verify HTTPS SPA, authentication and order flow
+          - bash: |
+              set -euo pipefail
+              mkdir -p artifacts
+              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/artifacts:/reports" aquasec/trivy:latest image --format sarif --output /reports/container.sarif --exit-code 0 order-management:local
+            displayName: Record container vulnerability report
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            inputs: {targetPath: artifacts, artifact: container-scan}
+          - ${{ if eq(parameters.deployAzure, true) }}:
+            - pwsh: ./scripts/Check-ProductionReadiness.ps1
+              displayName: Block unsupported framework from production
+            - bash: |
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed order-management:local
+              displayName: Enforce production vulnerability gate
+            - task: AzureCLI@2
+              displayName: Push immutable commit-tagged image to ACR
+              inputs:
+                azureSubscription: ${{ parameters.azureServiceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  set -euo pipefail
+                  az acr login --name "$ACR_NAME" --output none
+                  docker tag order-management:local "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG"
+                  docker push "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG"
+              env:
+                ACR_NAME: $(acrName)
+                ACR_LOGIN_SERVER: $(acrLoginServer)
+                IMAGE_TAG: $(imageTag)
+          - bash: docker compose down --volumes --remove-orphans
+            condition: always()
+            env: {COMPOSE_PROJECT_NAME: 'orders-ci-$(Build.BuildId)'}
+            displayName: Remove disposable CI containers and data
+
+  - ${{ if eq(parameters.deployAzure, true) }}:
+    - stage: Deploy
+      dependsOn: Container
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      jobs:
+        - deployment: Release
+          # Configure approvals/checks on this Azure DevOps environment outside YAML.
+          environment: orders-production
+          # Private SQL access requires an agent with access to the deployment VNet.
+          pool: {name: orders-release-private}
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
+                  - task: AzureKeyVault@2
+                    # Retrieve DDL credentials only on the private release agent, not public CI agents.
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      KeyVaultName: $(keyVaultName)
+                      SecretsFilter: orders-migration-connection,orders-logs-migration-connection
+                  - task: AzureCLI@2
+                    displayName: Run migration once with separate DDL identity
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        set -euo pipefail
+                        az acr login --name "$ACR_NAME" --output none
+                        docker pull "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG"
+                        docker run --rm --env ConnectionStrings__Orders --env ConnectionStrings__LogsMigration --env Observability__SqlServer__Enabled=false --env Observability__File__Enabled=false "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG" --migrate
+                    env:
+                      ConnectionStrings__Orders: $(orders-migration-connection)
+                      ConnectionStrings__LogsMigration: $(orders-logs-migration-connection)
+                      ACR_NAME: $(acrName)
+                      ACR_LOGIN_SERVER: $(acrLoginServer)
+                      IMAGE_TAG: $(imageTag)
+                  - task: AzureWebAppContainer@1
+                    # Deploy the immutable image already tested in CI; do not rebuild for the slot.
+                    displayName: Deploy tested image to staging slot
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      appName: $(webAppName)
+                      resourceGroupName: $(resourceGroupName)
+                      deployToSlotOrASE: true
+                      slotName: staging
+                      containers: $(acrLoginServer)/orders:$(imageTag)
+                  - pwsh: ./scripts/Verify-Deployment.ps1 -Origin "$(stagingOrigin)"
+                    displayName: Validate staging readiness, SPA and security responses
+                  - task: AzureAppServiceManage@0
+                    # Swap the app version after readiness checks; database changes remain in place.
+                    displayName: Swap validated staging into production
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      Action: Swap Slots
+                      WebAppName: $(webAppName)
+                      ResourceGroupName: $(resourceGroupName)
+                      SourceSlot: staging
+                      SwapWithProduction: true
+                  - pwsh: ./scripts/Verify-Deployment.ps1 -Origin "$(productionOrigin)"
+                    displayName: Validate production (use slot swap rollback if this fails)

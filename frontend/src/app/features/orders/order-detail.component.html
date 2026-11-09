@@ -1,0 +1,111 @@
+<app-feedback [error]="error()" [success]="success()" />
+@if (order(); as order) {
+  <div class="section-title">
+    <h1>Order #{{ order.id }}</h1>
+    <span class="badge">{{ order.status }}</span>
+  </div>
+  <p>
+    Total: <strong>{{ order.totalAmount | currency: "INR" }}</strong>
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Unit price at order</th>
+          <th>Quantity</th>
+          <th>Line total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of order.items; track item.id) {
+          <tr>
+            <td>{{ item.productName }}</td>
+            <td>{{ item.unitPrice | currency: "INR" }}</td>
+            <td>
+              @if (canEdit()) {
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  [value]="item.quantity"
+                  #qty
+                /><button
+                  [disabled]="busy()"
+                  (click)="update(item.id, +qty.value)"
+                >
+                  Save
+                </button>
+              } @else {
+                {{ item.quantity }}
+              }
+            </td>
+            <td>{{ item.quantity * item.unitPrice | currency: "INR" }}</td>
+            <td>
+              @if (canEdit()) {
+                <button
+                  [disabled]="busy() || order.items.length === 1"
+                  (click)="remove(item.id)"
+                >
+                  Remove
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @if (canEdit()) {
+    <section class="toolbar">
+      <label
+        >Search products<input #search type="search" maxlength="100" /><button
+          (click)="find(search.value)"
+        >
+          Find
+        </button></label
+      ><label
+        >Add product<select #product>
+          @for (p of products(); track p.id) {
+            <option [value]="p.id">
+              {{ p.name }} ({{ p.stockQuantity }} available)
+            </option>
+          }
+        </select></label
+      ><label
+        >Quantity<input
+          #count
+          type="number"
+          min="1"
+          max="10000"
+          value="1" /></label
+      ><button
+        [disabled]="busy() || !products().length"
+        (click)="add(+product.value, +count.value)"
+      >
+        Add item
+      </button>
+    </section>
+  }
+  <div class="actions">
+    @if (order.status === "Draft" || order.status === "Confirmed") {
+      <button [disabled]="busy()" (click)="cancel()">
+        Cancel order and restore stock
+      </button>
+    }
+    <span *appPermission="'ManageOrderStatus'">
+      @if (nextStatus(); as next) {
+        <button
+          class="primary"
+          [disabled]="busy()"
+          (click)="changeStatus(next)"
+        >
+          Move to {{ next }}
+        </button>
+      }</span
+    ><button [disabled]="busy()" (click)="load()">Reload</button>
+  </div>
+} @else {
+  <p>Loading order…</p>
+}

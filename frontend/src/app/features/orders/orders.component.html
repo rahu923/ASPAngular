@@ -1,0 +1,63 @@
+<div class="section-title">
+  <h1>{{ auth.has("ViewAllOrders") ? "All orders" : "Your orders" }}</h1>
+  <a routerLink="/orders/new" class="button primary">Create order</a>
+</div>
+<div class="toolbar">
+  <label
+    >Search product name<input
+      [formControl]="search"
+      type="search"
+      maxlength="100" /></label
+  ><label
+    >Status<select [formControl]="status">
+      <option value="">All</option>
+      @for (s of statuses; track s) {
+        <option [value]="s">{{ s }}</option>
+      }
+    </select></label
+  ><label
+    >Sort<select [formControl]="sort">
+      <option value="newest">Newest</option>
+      <option value="oldest">Oldest</option>
+      <option value="total">Highest total</option>
+    </select></label
+  >
+</div>
+<app-feedback [error]="error()" />
+@if (loading()) {
+  <p role="status">Loading orders…</p>
+} @else {
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Created (local time)</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (order of data().items; track order.id) {
+          <tr>
+            <td>#{{ order.id }}</td>
+            <td>{{ order.createdAtUtc | date: "medium" }}</td>
+            <td>{{ order.status }}</td>
+            <td>{{ order.totalAmount | currency: "INR" }}</td>
+            <td><a [routerLink]="['/orders', order.id]">Details</a></td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5">No orders match your filters.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <app-pager
+    [page]="data().pageNumber"
+    [pages]="pages()"
+    (change)="loadOrders($event)"
+  />
+}

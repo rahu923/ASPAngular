@@ -1,0 +1,78 @@
+<section class="intro">
+  <p class="eyebrow">YOUR WORKSPACE / CATALOG</p>
+  <h1>Good orders start here.</h1>
+  <p>Explore the catalog. Search, compare, and find your next essential.</p>
+</section>
+<section class="catalog" aria-label="Product catalog">
+  <div class="section-title">
+    <h2>
+      Products <span>{{ data().totalCount }}</span>
+    </h2>
+    <span class="muted">Live from SQL Server</span>
+  </div>
+  <div class="toolbar">
+    <label
+      >Search catalog<input
+        type="search"
+        placeholder="Search name or SKU…"
+        [formControl]="search"
+        maxlength="100"
+    /></label>
+    <label
+      >Sort by<select [formControl]="sort">
+        <option value="name">Name A–Z</option>
+        <option value="price">Price: low to high</option>
+        <option value="price_desc">Price: high to low</option>
+      </select></label
+    >
+  </div>
+  @if (loading()) {
+    <p role="status" class="notice">Loading products…</p>
+  } @else if (error()) {
+    <div role="alert" class="notice error">
+      <strong>We couldn’t load the catalog.</strong>
+      <p>
+        Check that the API is running and the database migration has been
+        applied.
+      </p>
+      <button (click)="loadProducts()">Try again</button>
+    </div>
+  } @else {
+    <div class="grid">
+      @for (product of data().items; track product.id) {
+        <article class="product">
+          <div class="product-art" aria-hidden="true">
+            {{ product.name.slice(0, 1) }}
+          </div>
+          <div class="product-body">
+            <small>{{ product.sku }}</small>
+            <h3>{{ product.name }}</h3>
+            <p>{{ product.description }}</p>
+            <div class="product-bottom">
+              <strong>{{ product.price | currency: "INR" }}</strong
+              ><span [class.sold-out]="!product.stockQuantity"
+                >{{ product.stockQuantity }} in stock</span
+              >
+            </div>
+          </div>
+        </article>
+      } @empty {
+        <p class="notice">No matching products. Try another search.</p>
+      }
+    </div>
+    <nav class="pagination" aria-label="Catalog pages">
+      <span>Page {{ page() }} of {{ pages() }}</span>
+      <div>
+        <button [disabled]="page() === 1" (click)="move(-1)">Previous</button
+        ><button [disabled]="page() >= pages()" (click)="move(1)">Next</button>
+      </div>
+    </nav>
+  }
+</section>
+<aside class="learning">
+  <strong>Ready to place an order?</strong>
+  <p>
+    Build your order from the catalog and track it from Draft to completion.
+  </p>
+  <a routerLink="/orders/new" class="button primary">Create an order</a>
+</aside>

@@ -1,0 +1,86 @@
+<h1>Create an order</h1>
+<p>
+  Stock is reserved when you create a Draft. Prices and totals are verified by
+  the server.
+</p>
+<app-feedback [error]="error()" />
+<label
+  >Find a product<input
+    type="search"
+    [formControl]="search"
+    maxlength="100"
+    placeholder="Name or SKU"
+/></label>
+<div class="grid">
+  @for (product of products(); track product.id) {
+    <article class="product product-body">
+      <small>{{ product.sku }}</small>
+      <h3>{{ product.name }}</h3>
+      <p>
+        {{ product.price | currency: "INR" }} ·
+        {{ product.stockQuantity }} available
+      </p>
+      <button
+        [disabled]="busy() || product.stockQuantity < 1"
+        (click)="add(product)"
+      >
+        Add to order
+      </button>
+    </article>
+  } @empty {
+    <p>No matching products.</p>
+  }
+</div>
+<app-pager
+  [page]="productPage()"
+  [pages]="productPages()"
+  (change)="loadPage($event)"
+/>
+<h2>Order items</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Quantity</th>
+        <th>Preview</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (line of cart(); track line.product.id) {
+        <tr>
+          <td>{{ line.product.name }}</td>
+          <td>
+            <input
+              type="number"
+              min="1"
+              max="10000"
+              [value]="line.quantity"
+              #qty
+              (change)="quantity(line.product.id, +qty.value, qty)"
+            />
+          </td>
+          <td>
+            {{ line.quantity * line.product.price | currency: "INR" }}
+          </td>
+          <td><button (click)="remove(line.product.id)">Remove</button></td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="4">Add a product to begin.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<p>
+  Estimated total: <strong>{{ total() | currency: "INR" }}</strong>
+</p>
+<button
+  class="primary"
+  [disabled]="!cart().length || busy()"
+  (click)="create()"
+>
+  {{ busy() ? "Creating…" : "Create Draft order" }}
+</button>

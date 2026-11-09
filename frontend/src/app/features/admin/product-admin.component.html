@@ -1,0 +1,90 @@
+<h1>Product administration</h1>
+<!-- Property bindings pass current signal values to a reusable child component. -->
+<app-feedback [error]="error()" [success]="success()" />
+<label
+  >Search products<input [formControl]="search" type="search" maxlength="100"
+/></label>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Price</th>
+        <th>Stock</th>
+        <th>Active</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Track by stable database ID so reordering/refetching can reuse the correct row DOM. -->
+      @for (p of data().items; track p.id) {
+        <tr>
+          <td>
+            {{ p.name }} <small>{{ p.sku }}</small>
+          </td>
+          <td>{{ p.price | currency: "INR" }}</td>
+          <td>{{ p.stockQuantity }}</td>
+          <td>{{ p.isActive ? "Yes" : "No" }}</td>
+          <td>
+            <button (click)="edit(p)">Edit</button
+            ><button [disabled]="busy() || !p.isActive" (click)="deactivate(p)">
+              Deactivate
+            </button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="5">No products found.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<!-- Parent owns the query/page. The child emits a page number through its change output. -->
+<app-pager
+  [page]="data().pageNumber"
+  [pages]="pages()"
+  (change)="load($event)"
+/>
+<section class="form-panel">
+  <h2>{{ editing() ? "Edit product" : "New product" }}</h2>
+  <!-- formControlName connects each input to the typed FormGroup in products.ts.
+       ngSubmit handles keyboard submission too; the server still validates every field. -->
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <label>Name<input formControlName="name" maxlength="160" /></label
+    ><label
+      >SKU<input
+        formControlName="sku"
+        maxlength="40"
+        placeholder="UPPERCASE-001" /></label
+    ><label
+      >Description<textarea
+        formControlName="description"
+        maxlength="2000"
+      ></textarea></label
+    ><label
+      >Price<input
+        type="number"
+        min="0.01"
+        step="0.01"
+        formControlName="price" /></label
+    ><label
+      >Stock quantity<input
+        type="number"
+        min="0"
+        step="1"
+        formControlName="stockQuantity"
+    /></label>
+    @if (form.touched && form.invalid) {
+      <p class="validation">
+        Complete every field. Use an uppercase SKU with letters, numbers and
+        hyphens, a positive price and nonnegative integer stock.
+      </p>
+    }
+    <!-- A secondary button needs type=button, otherwise HTML defaults it to submit. -->
+    <div class="actions">
+      <button class="primary" [disabled]="busy()">Save product</button
+      ><button type="button" (click)="reset()">New / clear</button>
+    </div>
+  </form>
+</section>

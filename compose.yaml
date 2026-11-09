@@ -1,0 +1,79 @@
+name: order-management
+x-app-environment: &app-environment
+  # YAML anchor: app and migrate share configuration without duplicating secret references.
+  ASPNETCORE_ENVIRONMENT: Development
+  DevelopmentStoragePath: /app/local
+  ConnectionStrings__Orders: "Server=sql,1433;Database=OrderManagement;User ID=sa;Password=${SQL_PASSWORD:?Run Initialize-Docker};Encrypt=True;TrustServerCertificate=True"
+  ConnectionStrings__Logs: "Server=sql,1433;Database=OrderManagement;User ID=sa;Password=${SQL_PASSWORD:?Run Initialize-Docker};Encrypt=True;TrustServerCertificate=True"
+  Jwt__SigningKey: "${JWT_SIGNING_KEY:?Run Initialize-Docker}"
+  DevelopmentAccountsPassword: "${DEVELOPMENT_PASSWORD:?Run Initialize-Docker}"
+  PublicOrigin: https://localhost:8443
+  AllowedHosts: localhost;127.0.0.1
+  Observability__Seq__Enabled: "true"
+  Observability__Seq__ServerUrl: http://seq:5341
+  Observability__SqlServer__Enabled: "true"
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: "${SQL_PASSWORD:?Run Initialize-Docker}"
+      MSSQL_PID: Developer
+    volumes: [sql-data:/var/opt/mssql]
+    healthcheck:
+      test: [CMD-SHELL, '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+  seq:
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: Y
+      SEQ_FIRSTRUN_ADMINPASSWORD: "${SEQ_PASSWORD:?Run Initialize-Docker}"
+    ports: ["127.0.0.1:5341:80"]
+    volumes: [seq-data:/data]
+    restart: unless-stopped
+  migrate:
+    # Same image, different command: finish schema work before accepting web traffic.
+    image: order-management:local
+    pull_policy: never
+    command: [--migrate]
+    environment:
+      <<: *app-environment
+      Observability__SqlServer__Enabled: "false"
+    volumes: [app-local:/app/local]
+    depends_on:
+      sql: {condition: service_healthy}
+  app:
+    image: order-management:local
+    build: .
+    ports: ["127.0.0.1:8443:8443"]
+    environment:
+      <<: *app-environment
+      ASPNETCORE_URLS: https://+:8443
+      HealthCheckUrl: https://localhost:8443/api/health/ready
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/localhost.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: "${PFX_PASSWORD:?Run Initialize-Docker}"
+    volumes:
+      - ./.certs:/https:ro
+      - app-local:/app/local
+      - app-logs:/app/logs
+    depends_on:
+      sql: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+      seq: {condition: service_started}
+    healthcheck:
+      # Verifies the precise locally mounted certificate, not arbitrary self-signed certificates.
+      test: [CMD, dotnet, OrderManagement.Api.dll, --health-check]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+volumes:
+  # Named volumes outlive individual containers; deleting a container does not delete its database.
+  sql-data:
+  seq-data:
+  app-local:
+  app-logs:

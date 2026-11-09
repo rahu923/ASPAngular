@@ -1,0 +1,65 @@
+<h1>Users and roles</h1>
+<p>
+  Role changes and account locks revoke refresh sessions. Existing access tokens
+  expire within five minutes.
+</p>
+<app-feedback [error]="error()" [success]="success()" /><label
+  >Search email<input type="search" [formControl]="search" maxlength="100"
+/></label>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Confirmed</th>
+        <th>Role</th>
+        <th>Account</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Stable IDs keep each user's controls associated with that user after a refresh. -->
+      @for (user of data().items; track user.id) {
+        <tr>
+          <td>{{ user.email }}</td>
+          <td>{{ user.emailConfirmed ? "Yes" : "No" }}</td>
+          <td>
+            <!-- #role is a template reference to this select, not a persisted authorization role.
+                 Disabled self-management is UI feedback; AdminController also rejects it. -->
+            <select
+              #role
+              [value]="user.roles[0]"
+              [disabled]="busy() || user.id === auth.user()?.id"
+            >
+              @for (r of roles(); track r) {
+                <option [value]="r">{{ r }}</option>
+              }</select
+            ><button
+              [disabled]="busy() || user.id === auth.user()?.id"
+              (click)="assign(user, role.value)"
+            >
+              Assign role
+            </button>
+          </td>
+          <td>
+            <button
+              [disabled]="busy() || user.id === auth.user()?.id"
+              (click)="lock(user)"
+            >
+              {{ user.locked ? "Unlock" : "Lock" }}
+            </button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="4">No matching users.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<!-- $event is the selected page emitted by Pager's typed output. -->
+<app-pager
+  [page]="data().pageNumber"
+  [pages]="pages()"
+  (change)="load($event)"
+/>

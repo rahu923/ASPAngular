@@ -1,0 +1,52 @@
+<section class="form-panel">
+  <p class="eyebrow">YOUR ACCOUNT</p>
+  <h1>{{ title }}</h1>
+  <app-feedback [error]="error()" [success]="success()" />
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    @if (mode !== "change-password") {
+      <label
+        >Email<input type="email" autocomplete="email" formControlName="email"
+      /></label>
+    }
+    @if (mode === "change-password") {
+      <label
+        >Current password<input
+          type="password"
+          autocomplete="current-password"
+          formControlName="currentPassword"
+      /></label>
+    }
+    @if (needsPassword) {
+      <label
+        >{{ mode === "change-password" ? "New password" : "Password"
+        }}<input
+          type="password"
+          [autocomplete]="
+            mode === 'login' ? 'current-password' : 'new-password'
+          "
+          formControlName="password"
+      /></label>
+      @if (mode !== "login") {
+        <small
+          >At least 12 characters, including uppercase, lowercase, number and
+          symbol.</small
+        >
+      }
+    }
+    @if (form.touched && form.invalid) {
+      <p class="validation">
+        Enter a valid email and complete all required fields. New passwords must
+        meet the requirements above.
+      </p>
+    }
+    <button class="primary" [disabled]="busy()">
+      {{ busy() ? "Working…" : title }}
+    </button>
+  </form>
+  <nav class="account-links">
+    <a routerLink="/account/login">Sign in</a
+    ><a routerLink="/account/register">Register</a
+    ><a routerLink="/account/forgot-password">Forgot password</a
+    ><a routerLink="/account/resend-confirmation">Resend confirmation</a>
+  </nav>
+</section>

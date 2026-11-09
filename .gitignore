@@ -1,0 +1,21 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+.local/
+.certs/
+*.user
+src/OrderManagement.Api/appsettings.Local.json
+**/logs/
+.env
+.env.*
+!.env.example
+TestResults/
+**/TestResults/
+artifacts/
+infra/main.parameters.json
+infra/main.json
+# Visual Studio cache
+.vs/
+tmp/
