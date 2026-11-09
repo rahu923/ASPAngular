@@ -11,7 +11,7 @@ parameters:
     default: false
   - name: azureServiceConnection
     type: string
-    default: orders-azure-wif
+    default: orders-azure-wif-manual
 
 variables:
   - name: imageTag
