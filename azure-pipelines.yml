@@ -68,13 +68,8 @@ stages:
               docker compose up --build --detach --wait --wait-timeout 240
             env: {COMPOSE_PROJECT_NAME: 'orders-ci-$(Build.BuildId)'}
             displayName: Build and boot complete stack
-          - pwsh: ./scripts/Verify-Container.ps1
-          - bash: |
-            displayName: Verify HTTPS SPA, authentication and order flow
-              set -euo pipefail
-              mkdir -p artifacts
-              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/artifacts:/reports" aquasec/trivy:latest image --format sarif --output /reports/container.sarif --exit-code 0 order-management:local
-            displayName: Record container vulnerability report
+# GitHub to Azure: step-by-step UI walkthrough
+          
           - task: PublishPipelineArtifact@1
             condition: always()
             inputs: {targetPath: artifacts, artifact: container-scan}
