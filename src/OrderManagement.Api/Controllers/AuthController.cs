@@ -38,6 +38,7 @@ public class AuthController : ControllerBase
     [HttpPost("register"), AllowAnonymous]
     public async Task<IActionResult> Register(Credentials input, CancellationToken ct)
     {
+        RequireEmailEnabled();
         // Validate the password equally for existing and new emails to avoid a response oracle.
         var candidate = new ApplicationUser { UserName = input.Email, Email = input.Email };
         foreach (var validator in users.PasswordValidators)
@@ -115,6 +116,7 @@ public class AuthController : ControllerBase
     [HttpPost("forgot-password"), AllowAnonymous]
     public async Task<IActionResult> Forgot(EmailRequest input, CancellationToken ct)
     {
+        RequireEmailEnabled();
         var user = await users.FindByEmailAsync(input.Email);
         if (user != null && user.EmailConfirmed) await SendLinkAsync(user, true, ct);
         return Accepted(new { message = "If the account is eligible, check your email." });
@@ -122,6 +124,7 @@ public class AuthController : ControllerBase
     [HttpPost("resend-confirmation"), AllowAnonymous]
     public async Task<IActionResult> Resend(EmailRequest input, CancellationToken ct)
     {
+        RequireEmailEnabled();
         var user = await users.FindByEmailAsync(input.Email);
         if (user != null && !user.EmailConfirmed) await SendLinkAsync(user, false, ct);
         return Accepted(new { message = "If the account is eligible, check your email." });
@@ -141,6 +144,13 @@ public class AuthController : ControllerBase
         var user = await users.FindByEmailAsync(input.Email);
         if (user == null || !(await users.ConfirmEmailAsync(user, input.Token)).Succeeded) throw new BusinessException("Confirmation link invalid or expired.");
         return NoContent();
+    }
+    private void RequireEmailEnabled()
+    {
+        // Reject before account lookup/creation: no undeliverable registrations or
+        // account-dependent responses while outbound email is deliberately disabled.
+        if (!config.GetValue("Email:Enabled", true))
+            throw new BusinessException("Email features are temporarily unavailable.", 503);
     }
     private async Task SendLinkAsync(ApplicationUser user, bool reset, CancellationToken ct)
     {

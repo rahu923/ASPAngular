@@ -16,3 +16,8 @@ public class UnconfiguredEmailSender : IEmailSender
 {
     public Task SendAsync(string email, string subject, string link, CancellationToken ct) => throw new InvalidOperationException("Configure a production email provider.");
 }
+public class DisabledEmailSender : IEmailSender
+{
+    public Task SendAsync(string email, string subject, string link, CancellationToken ct)
+        => throw new BusinessException("Email features are temporarily unavailable.", 503);
+}

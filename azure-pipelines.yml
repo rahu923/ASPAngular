@@ -126,7 +126,7 @@ stages:
                     inputs:
                       azureSubscription: ${{ parameters.azureServiceConnection }}
                       KeyVaultName: $(keyVaultName)
-                      SecretsFilter: orders-migration-connection,orders-logs-migration-connection
+                      SecretsFilter: orders-migration-connection
                   - task: AzureCLI@2
                     displayName: Run migration once with separate DDL identity
                     inputs:
@@ -137,23 +137,30 @@ stages:
                         set -euo pipefail
                         az acr login --name "$ACR_NAME" --output none
                         docker pull "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG"
-                        docker run --rm --env ConnectionStrings__Orders --env ConnectionStrings__LogsMigration --env Observability__SqlServer__Enabled=false --env Observability__File__Enabled=false "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG" --migrate
+                        docker run --rm --env ConnectionStrings__Orders --env Email__Enabled=false --env Observability__SqlServer__Enabled=false --env Observability__File__Enabled=false "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG" --migrate
                     env:
                       ConnectionStrings__Orders: $(orders-migration-connection)
-                      ConnectionStrings__LogsMigration: $(orders-logs-migration-connection)
                       ACR_NAME: $(acrName)
                       ACR_LOGIN_SERVER: $(acrLoginServer)
                       IMAGE_TAG: $(imageTag)
-                  - task: AzureWebAppContainer@1
-                    # Deploy the immutable image already tested in CI; do not rebuild for the slot.
-                    displayName: Deploy tested image to staging slot
+                  - task: AzureCLI@2
+                    # The portal-created app uses sitecontainers (sidecar-enabled mode).
+                    displayName: Deploy tested main container to staging slot
                     inputs:
                       azureSubscription: ${{ parameters.azureServiceConnection }}
-                      appName: $(webAppName)
-                      resourceGroupName: $(resourceGroupName)
-                      deployToSlotOrASE: true
-                      slotName: staging
-                      containers: $(acrLoginServer)/orders:$(imageTag)
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        set -euo pipefail
+                        az webapp sitecontainers create \
+                          --resource-group "$RESOURCE_GROUP" --name "$WEB_APP" --slot staging \
+                          --container-name orders --image "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG" \
+                          --target-port 8080 --is-main true --system-assigned-identity true --output none
+                    env:
+                      RESOURCE_GROUP: $(resourceGroupName)
+                      WEB_APP: $(webAppName)
+                      ACR_LOGIN_SERVER: $(acrLoginServer)
+                      IMAGE_TAG: $(imageTag)
                   - pwsh: ./scripts/Verify-Deployment.ps1 -Origin "$(stagingOrigin)"
                     displayName: Validate staging readiness, SPA and security responses
                   - task: AzureAppServiceManage@0

@@ -141,7 +141,9 @@ builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ProductAdminService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddSingleton<CatalogCache>();
-if (builder.Environment.IsDevelopment()) builder.Services.AddSingleton<IEmailSender>(new DevelopmentEmailSender(Path.Combine(local, "mailbox")));
+if (!builder.Configuration.GetValue("Email:Enabled", true))
+    builder.Services.AddSingleton<IEmailSender, DisabledEmailSender>();
+else if (builder.Environment.IsDevelopment()) builder.Services.AddSingleton<IEmailSender>(new DevelopmentEmailSender(Path.Combine(local, "mailbox")));
 else if (builder.Environment.EnvironmentName == "Testing") builder.Services.AddSingleton<IEmailSender, UnconfiguredEmailSender>();
 else
 {

@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
+using Microsoft.Extensions.Configuration;
 using OrderManagement.Application;
 using OrderManagement.Domain;
 using OrderManagement.Infrastructure;
@@ -11,6 +12,30 @@ public class SecurityAndOrdersTests : IClassFixture<ApiFixture>
 {
     private readonly ApiFixture fixture;
     public SecurityAndOrdersTests(ApiFixture fixture) => this.fixture = fixture;
+    [Fact]
+    public async Task Disabled_email_rejects_requests_without_creating_accounts_and_keeps_catalog_available()
+    {
+        using var disabled = fixture.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["Email:Enabled"] = "false" })));
+        using var browser = new BrowserClient(disabled.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"), HandleCookies = false, AllowAutoRedirect = false
+        }));
+        await browser.Csrf();
+        var email = "disabled-" + Guid.NewGuid().ToString("N") + "@test.local";
+        foreach (var path in new[] { "register", "forgot-password", "resend-confirmation" })
+        {
+            using var response = await browser.Send(HttpMethod.Post, "/api/auth/" + path,
+                new { email, password = ApiFixture.Password });
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        }
+        using var scope = disabled.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+        Assert.False(await db.Users.AnyAsync(user => user.Email == email));
+        using var catalog = await browser.Send(HttpMethod.Get, "/api/products");
+        Assert.Equal(HttpStatusCode.OK, catalog.StatusCode);
+    }
     private static object ProductBody(string sku, int stock, decimal price = 12.5m, string? rowVersion = null) => new { name = "Test " + sku, sku, description = "Integration test product", price, stockQuantity = stock, rowVersion };
     private async Task<ProductDto> Product(int stock = 10, decimal price = 12.5m)
     {
