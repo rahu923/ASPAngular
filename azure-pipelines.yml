@@ -1,9 +1,9 @@
 trigger:
   branches:
-    include: [main]
+    include: [master]
 pr:
   branches:
-    include: [main]
+    include: [master]
 
 parameters:
   - name: deployAzure
@@ -76,8 +76,10 @@ stages:
               docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/artifacts:/reports" aquasec/trivy:latest image --format sarif --output /reports/container.sarif --exit-code 0 order-management:local
             displayName: Record container vulnerability report
           - task: PublishPipelineArtifact@1
-            condition: always()
-            inputs: {targetPath: artifacts, artifact: container-scan}
+            condition: succeeded()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/artifacts'
+              artifact: container-scan
           - ${{ if eq(parameters.deployAzure, true) }}:
             - pwsh: ./scripts/Check-ProductionReadiness.ps1
               displayName: Block unsupported framework from production
@@ -107,7 +109,7 @@ stages:
   - ${{ if eq(parameters.deployAzure, true) }}:
     - stage: Deploy
       dependsOn: Container
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       jobs:
         - deployment: Release
           # Configure approvals/checks on this Azure DevOps environment outside YAML.

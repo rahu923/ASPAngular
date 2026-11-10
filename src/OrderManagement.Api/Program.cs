@@ -64,7 +64,7 @@ if (!builder.Environment.IsDevelopment() && builder.Environment.EnvironmentName 
         ProductionConfiguration.Validate(builder.Configuration);
         var certificate = builder.Configuration["DataProtection:CertificateBase64"];
         if (string.IsNullOrWhiteSpace(certificate)) throw new InvalidOperationException("Configure an encryption certificate for persisted Data Protection keys.");
-        var keyCertificate = new X509Certificate2(Convert.FromBase64String(certificate), builder.Configuration["DataProtection:CertificatePassword"], X509KeyStorageFlags.EphemeralKeySet);
+        var keyCertificate = X509CertificateLoader.LoadPkcs12(Convert.FromBase64String(certificate), builder.Configuration["DataProtection:CertificatePassword"], X509KeyStorageFlags.EphemeralKeySet);
         if (!keyCertificate.HasPrivateKey || keyCertificate.NotAfter.ToUniversalTime() <= DateTime.UtcNow)
             throw new InvalidOperationException("Data Protection requires a valid certificate with its private key.");
         protection.ProtectKeysWithCertificate(keyCertificate);

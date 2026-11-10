@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Net.Http.Headers;
 using OrderManagement.Application;
 using OrderManagement.Domain;
 using OrderManagement.Infrastructure;
@@ -47,9 +48,16 @@ public class SecurityAndOrdersTests : IClassFixture<ApiFixture>
         Assert.Equal(HttpStatusCode.OK, success.StatusCode);
         var cookies = success.Headers.GetValues("Set-Cookie").ToArray();
         Assert.Equal(2, cookies.Length);
-        Assert.All(cookies, c => { Assert.Contains("secure", c); Assert.Contains("httponly", c); Assert.Contains("samesite=lax", c); });
-        Assert.Contains(cookies, c => c.StartsWith("oms-access=") && c.Contains("path=/api;"));
-        Assert.Contains(cookies, c => c.StartsWith("oms-refresh=") && c.Contains("path=/api/auth;"));
+        // Parse attributes rather than relying on casing or header formatting.
+        var parsedCookies = cookies.Select(c => SetCookieHeaderValue.Parse(c)).ToArray();
+        Assert.All(parsedCookies, c =>
+        {
+            Assert.True(c.Secure);
+            Assert.True(c.HttpOnly);
+            Assert.Equal(Microsoft.Net.Http.Headers.SameSiteMode.Lax, c.SameSite);
+        });
+        Assert.Contains(parsedCookies, c => c.Name == "oms-access" && c.Path == "/api");
+        Assert.Contains(parsedCookies, c => c.Name == "oms-refresh" && c.Path == "/api/auth");
         var json = await success.Content.ReadAsStringAsync();
         Assert.DoesNotContain("accessToken", json); Assert.DoesNotContain("refreshToken", json);
         await browser.Csrf();
@@ -77,8 +85,8 @@ public class SecurityAndOrdersTests : IClassFixture<ApiFixture>
     {
         using var a = await fixture.Login("alice@test.local"); using var b = fixture.Browser(); a.CopyCookiesTo(b);
         var responses = await Task.WhenAll(a.Send(HttpMethod.Post, "/api/auth/refresh", new { }), b.Send(HttpMethod.Post, "/api/auth/refresh", new { }));
-        Assert.Single(responses.Where(x => x.StatusCode == HttpStatusCode.NoContent));
-        Assert.Single(responses.Where(x => x.StatusCode == HttpStatusCode.Unauthorized));
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.NoContent);
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Unauthorized);
         var winner = responses[0].StatusCode == HttpStatusCode.NoContent ? a : b;
         Assert.Equal(HttpStatusCode.Unauthorized, (await winner.Send(HttpMethod.Post, "/api/auth/refresh", new { })).StatusCode);
     }
@@ -174,7 +182,7 @@ public class SecurityAndOrdersTests : IClassFixture<ApiFixture>
         var product = await Product(1); using var alice = await fixture.Login("alice@test.local"); using var bob = await fixture.Login("bob@test.local");
         var input = new { items = new[] { new { productId = product.Id, quantity = 1 } } };
         var responses = await Task.WhenAll(alice.Send(HttpMethod.Post, "/api/orders", input), bob.Send(HttpMethod.Post, "/api/orders", input));
-        Assert.Single(responses.Where(x => x.StatusCode == HttpStatusCode.Created)); Assert.Single(responses.Where(x => x.StatusCode == HttpStatusCode.Conflict));
+        Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Created); Assert.Single(responses, x => x.StatusCode == HttpStatusCode.Conflict);
         Assert.Equal(0, (await GetProduct(product.Id)).StockQuantity);
     }
     [Fact]
@@ -187,6 +195,7 @@ public class SecurityAndOrdersTests : IClassFixture<ApiFixture>
         Assert.Equal(HttpStatusCode.NoContent, (await client.Send(HttpMethod.Post, "/api/auth/confirm-email", new { email, token = fragment["token"] })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.Send(HttpMethod.Post, "/api/auth/login", new { email, password = ApiFixture.Password })).StatusCode); await client.Csrf();
         using var scope = fixture.Services.CreateScope(); var users = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<ApplicationUser>>(); var user = await users.FindByEmailAsync(email);
+        Assert.NotNull(user);
         Assert.Equal(new[] { "Customer" }, await users.GetRolesAsync(user));
         Assert.Equal(HttpStatusCode.Accepted, (await client.Send(HttpMethod.Post, "/api/auth/forgot-password", new { email })).StatusCode);
         link = fixture.Mailbox.Links[email]; fragment = link.Split('#')[1].Split('&').Select(x => x.Split('=', 2)).ToDictionary(x => x[0], x => Uri.UnescapeDataString(x[1]));

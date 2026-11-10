@@ -46,8 +46,11 @@ public class OrderDbContext : IdentityDbContext<ApplicationUser>, IDataProtectio
             // UPDATE/DELETE predicates and raises a concurrency exception if no row matches.
             p.Property(x => x.RowVersion).IsRowVersion();
             // Database checks remain authoritative even if a caller bypasses API validation.
-            p.HasCheckConstraint("CK_Product_Price", "[Price] >= 0");
-            p.HasCheckConstraint("CK_Product_Stock", "[StockQuantity] >= 0");
+            p.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Product_Price", "[Price] >= 0");
+                t.HasCheckConstraint("CK_Product_Stock", "[StockQuantity] >= 0");
+            });
             // Avoid global active filters: historical orders must still resolve products.
             p.HasData(new Product { Id = 1, Name = "Mechanical Keyboard", Sku = "KEY-001", Description = "Compact keyboard for your development desk", Price = 3499m, StockQuantity = 25 },
                 new Product { Id = 2, Name = "USB-C Hub", Sku = "HUB-001", Description = "Connect your daily essentials", Price = 1799m, StockQuantity = 40 });
@@ -59,7 +62,7 @@ public class OrderDbContext : IdentityDbContext<ApplicationUser>, IDataProtectio
             // Composite index starts with the ownership filter, then the history timestamp.
             o.HasIndex(x => new { x.CustomerId, x.CreatedAtUtc });
             o.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
-            o.HasCheckConstraint("CK_Order_Total", "[TotalAmount] >= 0");
+            o.ToTable(t => t.HasCheckConstraint("CK_Order_Total", "[TotalAmount] >= 0"));
         });
         model.Entity<OrderItem>(i =>
         {
@@ -69,8 +72,11 @@ public class OrderDbContext : IdentityDbContext<ApplicationUser>, IDataProtectio
             i.HasOne(x => x.Order).WithMany(x => x.Items).HasForeignKey(x => x.OrderId);
             // Restrict physical deletion of referenced products; deactivation preserves history.
             i.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
-            i.HasCheckConstraint("CK_OrderItem_Quantity", "[Quantity] > 0");
-            i.HasCheckConstraint("CK_OrderItem_Price", "[UnitPrice] >= 0");
+            i.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_OrderItem_Quantity", "[Quantity] > 0");
+                t.HasCheckConstraint("CK_OrderItem_Price", "[UnitPrice] >= 0");
+            });
         });
     }
 }

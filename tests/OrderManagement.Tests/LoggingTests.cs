@@ -50,7 +50,7 @@ public class LoggingTests : IClassFixture<ApiFixture>
         }
         received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var directory = Path.Combine(AppContext.BaseDirectory, "logs", Guid.NewGuid().ToString("N"));
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Observability:Console:Enabled"] = "true",
             ["Observability:File:Enabled"] = "true",

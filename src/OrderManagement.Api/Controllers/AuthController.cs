@@ -94,13 +94,15 @@ public class AuthController : ControllerBase
     {
         // User details are enough for UI restoration; never serialize the JWT or refresh cookie.
         Response.Headers.CacheControl = "no-store";
-        var user = await users.FindByIdAsync(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = userId == null ? null : await users.FindByIdAsync(userId);
         return user == null ? Unauthorized() : Ok(await tokens.DescribeAsync(user));
     }
     [HttpPost("change-password"), Authorize]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest input, CancellationToken ct)
     {
-        var user = await users.FindByIdAsync(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = userId == null ? null : await users.FindByIdAsync(userId);
         if (user == null) return Unauthorized();
         // Identity validates the current password and new-password policy and updates its hash.
         // Revoke refresh families afterward; existing access JWTs still live until expiry.

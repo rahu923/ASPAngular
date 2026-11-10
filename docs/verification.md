@@ -1,4 +1,13 @@
-﻿# Verification report — milestones 1–6
+# Verification report — milestones 1–6
+
+## Current: .NET 10 upgrade (November 10, 2026)
+
+Release build passed with zero warnings/errors; all 20 SQL integration tests passed. EF reports no pending model changes, NuGet audit reports no known vulnerable dependencies, and API publish/framework gate passed. Docker verification remains pending because the Linux engine is unavailable. See [upgrade notes](dotnet-10-upgrade.md).
+
+## Historical .NET 6 baseline
+
+The results below describe the original November 8 baseline and are superseded by the upgrade results above.
+
 
 Executed on November 8, 2026 in the supplied Windows workspace.
 

@@ -30,7 +30,9 @@ public class SmtpEmailSender : IEmailSender
         // StartTls is mandatory here (not opportunistic StartTlsWhenAvailable). Authenticate
         // and send the recovery link only after the TLS upgrade and normal certificate validation.
         await client.ConnectAsync(options.Host, options.Port, SecureSocketOptions.StartTls, ct);
-        if (!string.IsNullOrEmpty(options.Username)) await client.AuthenticateAsync(options.Username, options.Password, ct);
+        if (!string.IsNullOrEmpty(options.Username))
+            await client.AuthenticateAsync(options.Username,
+                options.Password ?? throw new InvalidOperationException("Configure SMTP password when a username is supplied."), ct);
         await client.SendAsync(message, ct);
         await client.DisconnectAsync(true, ct);
     }

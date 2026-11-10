@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-ARG DOTNET_SDK=6.0
-ARG DOTNET_RUNTIME=6.0
+ARG DOTNET_SDK=10.0-noble
+ARG DOTNET_RUNTIME=10.0-noble
 FROM node:22.18.0-bookworm-slim AS frontend
 # Dependencies are copied before source so unchanged npm inputs can reuse Docker's build cache.
 WORKDIR /ui
@@ -23,11 +23,11 @@ RUN dotnet publish src/OrderManagement.Api/OrderManagement.Api.csproj -c Release
 
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME} AS final
 # Multi-stage copies bring only published outputs into the runtime; SDK/Node stay in build stages.
-RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --no-create-home app
+RUN groupadd --gid 10001 orders && useradd --uid 10001 --gid orders --no-create-home orders
 WORKDIR /app
 COPY --from=build /publish/ ./
 COPY --from=frontend /ui/dist/orders/browser/ ./wwwroot/
-RUN mkdir -p /app/logs /app/local && chown -R app:app /app
+RUN mkdir -p /app/logs /app/local && chown -R orders:orders /app
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_EnableDiagnostics=0 \

@@ -1,8 +1,10 @@
 # Docker and Azure DevOps deployment guide
 
+For click-by-click setup with Microsoft UI reference screenshots, see the [Azure UI walkthrough](azure-ui-walkthrough.md). For commands and YAML edits, see the [GitHub-to-Azure setup plan](github-to-azure-plan.md).
+
 ## Release status and framework gate
 
-The application, Serilog sinks, Docker stack, deployment scripts and Azure artifacts have been implemented. This is **not a verified production release**. The original brief explicitly required .NET 6, which is unsupported. It is retained pending the framework-upgrade decision. scripts/Check-ProductionReadiness.ps1 deliberately blocks Azure production deployment until the API targets .NET 10 LTS and the upgrade is verified. Do not remove the gate or change only the TargetFramework string to bypass it. Upgrade SDK/global.json, ASP.NET/EF/Identity packages, EF tool and Docker images together, review breaking changes and migrations, and rerun all tests/scans. Your production rollout also requires actual Azure configuration and environment checks below.
+The backend and tests now target .NET 10 LTS, using SDK 10.0.403 and Microsoft packages/EF tool 10.0.14. Docker uses .NET 10 Ubuntu Noble images. See [upgrade notes](dotnet-10-upgrade.md) for migration and verification results. This is **not a verified production release**. The framework gate remains enabled; passing it does not replace container, vulnerability, database or Azure environment checks.
 
 ## Local complete stack
 
@@ -26,7 +28,7 @@ Components:
 
 The initializer creates ignored .env values without overwriting existing ones. Local Customer/Manager/Admin account emails are the README accounts, but **container passwords come from DEVELOPMENT_PASSWORD in .env**, independently of host LocalDB's .local/dev-secrets.json. Local-only SQL SA credentials are also generated. Production never uses these credentials. The app uses the host-exported encrypted PFX; certificates/passwords/.env/.local are excluded from image context. Named volumes persist SQL, Seq, local key/mailbox data and rolling log files.
 
-`docker compose stop` stops services. `docker compose down` removes containers/network while preserving volumes. Do not add --volumes unless deliberately deleting the local database/logs. Back up before any destructive reset. Images use archived .NET 6 tags for the retained practice target; upgrade to supported images and pin reviewed digests before production. No image contains the SDK or Node runtime in its final layer.
+`docker compose stop` stops services. `docker compose down` removes containers/network while preserving volumes. Do not add --volumes unless deliberately deleting the local database/logs. Back up before any destructive reset. Images use supported .NET 10 Ubuntu Noble tags; pin reviewed digests in the release baseline. No image contains the SDK or Node runtime in its final layer.
 
 ## Application hardening provided
 
@@ -38,7 +40,7 @@ The initializer creates ignored .env values without overwriting existing ones. L
 - Readiness checks SQL connectivity and pending migrations. Missing API routes remain JSON 404s, while client routes get the SPA document. Production per-process catalog caching is disabled, avoiding divergent caches across instances.
 - Logging avoids authentication payloads and raw exceptions. See logging.md for all sinks and retention/permissions.
 
-Still required: supported framework/packages, edge throttling/WAF rules for auth/recovery and volumetric traffic, backup/PITR restoration drill, load/concurrency tests at intended scale, monitored email/log delivery, expiry/revocation behavior review, operational alerting, certificate/signing-key rotation procedures and cross-tab refresh coordination if needed. Strict reuse detection can invalidate a family when independent tabs race. Do not advertise production readiness until these environment-specific checks pass.
+Still required: ongoing package/security review, edge throttling/WAF rules for auth/recovery and volumetric traffic, backup/PITR restoration drill, load/concurrency tests at intended scale, monitored email/log delivery, expiry/revocation behavior review, operational alerting, certificate/signing-key rotation procedures and cross-tab refresh coordination if needed. Strict reuse detection can invalidate a family when independent tabs race. Do not advertise production readiness until these environment-specific checks pass.
 
 ## Azure landing-zone prerequisites
 

@@ -18,7 +18,7 @@ public static class ProxyConfiguration
             if (parts.Length != 2) throw new InvalidOperationException("Expected CIDR for a trusted proxy network.");
             var prefix = int.Parse(parts[1]);
             if (prefix <= 0) throw new InvalidOperationException("Trusting every proxy address is forbidden.");
-            options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse(parts[0]), prefix));
+            options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse(parts[0]), prefix));
         }
     }
 }

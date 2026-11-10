@@ -71,7 +71,7 @@ npm start
 
 Visit https://localhost:4200 and https://localhost:7043/swagger. Sign in with the seeded Customer account. Search the catalog and open Orders.
 
-Expected: the catalog loads, authentication succeeds, and no browser security warning needs bypassing. The pinned .NET SDK is 6.0.428; the existing Node version used for verification was 22.18.0. The requested .NET 6 target is for practice and blocks production deployment; upgrading it is a later explicit task.
+Expected: the catalog loads, authentication succeeds, and no browser security warning needs bypassing. The .NET SDK is 10.0.403; the Node version is 22.18.0. See dotnet-10-upgrade.md for the coordinated framework upgrade and verification results.
 
 Write down: browser origin, API port, SQL instance/database and password-file location.
 
@@ -481,7 +481,7 @@ az bicep build --file infra/main.bicep
 powershell -NoProfile -File scripts/Check-ProductionReadiness.ps1
 ```
 
-Azure CLI is needed for the first command. The readiness command currently **must fail** because net6.0 is intentionally retained. A failure here is the expected safeguard. The framework upgrade must update SDK, packages, EF tool and image versions together, with regression/security verification.
+Azure CLI is needed for the first command. The readiness command should pass for the net10.0 target. SDK, packages, EF tool and image versions were upgraded together; regression, migration and security checks still apply.
 
 With an authorized Azure subscription and completed parameters, do a what-if review before provisioning. The App Service plan/resources cost money; do not use a deployment command merely to read the template. Keep deployAzure=false until the framework and environment checks pass.
 
@@ -537,7 +537,7 @@ Answer aloud:
 14. What happens if Seq/SQL logging is unavailable?
 15. How do shared encrypted Data Protection keys help replicas/slot swaps?
 16. How do you roll back the application when the database has already migrated?
-17. What specifically prevents calling the current .NET 6 build production-ready?
+17. Which operational checks remain before calling this build production-ready?
 
 ## Troubleshooting quick reference
 
@@ -554,7 +554,7 @@ Answer aloud:
 | Docker app cannot read PFX | Check path, password, host file readability for UID 10001 and whether .env was regenerated without re-exporting |
 | SQL/Seq logs appear late | Allow batching delay; verify enabled flags, endpoint, table provisioning and runtime permissions |
 | Docker source edits have no effect | Rebuild with docker compose up --build; this image has no development hot reload |
-| Pipeline production gate fails | Expected on net6.0; do the supported-framework upgrade instead of bypassing it |
+| Pipeline production gate fails | Check all projects, SDK, packages, EF tool and image versions; do not bypass the gate |
 | Azure redirect loop or antiforgery HTTPS failure | Verify forwarded scheme and only the legitimate immediate proxy ranges; never trust all proxies to make it pass |
 
 ## Keep a practice journal

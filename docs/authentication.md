@@ -38,6 +38,6 @@ Prefer a single deployment HTTPS origin for SPA and /api, requiring no CORS. Con
 
 Separate-origin deployment is not configured. If added, allowlist exact origins, credentials and the CSRF header, and implement trusted-origin XSRF handling because Angular's built-in interceptor skips absolute cross-origin URLs. Cross-site cookies require SameSite=None;Secure and may still be blocked by third-party-cookie policies. Never combine wildcard origins and credentials.
 
-Current hosting changes add SMTP with STARTTLS, certificate-encrypted SQL Data Protection keys and production caching disabled by default. See azure-devops.md. Remaining operational limits include signing-key rotation, no cross-tab refresh coordination or durable email queue, edge throttling, and unverified production deployment. .NET 6 is unsupported.
+Current hosting changes add SMTP with STARTTLS, certificate-encrypted SQL Data Protection keys and production caching disabled by default. See azure-devops.md. Remaining operational limits include signing-key rotation, no cross-tab refresh coordination or durable email queue, edge throttling, and unverified production deployment. The backend now targets .NET 10; see dotnet-10-upgrade.md for verification.
 
 References: [ASP.NET antiforgery](https://learn.microsoft.com/aspnet/core/security/anti-request-forgery), [Angular interceptors](https://angular.dev/guide/http/interceptors).
