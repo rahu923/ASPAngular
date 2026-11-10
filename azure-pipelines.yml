@@ -152,9 +152,9 @@ stages:
                       scriptLocation: inlineScript
                       inlineScript: |
                         set -euo pipefail
-                        az webapp sitecontainers create \
+                        az webapp sitecontainers update \
                           --resource-group "$RESOURCE_GROUP" --name "$WEB_APP" --slot staging \
-                          --container-name orders --image "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG" \
+                          --container-name main --image "$ACR_LOGIN_SERVER/orders:$IMAGE_TAG" \
                           --target-port 8080 --is-main true --system-assigned-identity true --output none
                     env:
                       RESOURCE_GROUP: $(resourceGroupName)
