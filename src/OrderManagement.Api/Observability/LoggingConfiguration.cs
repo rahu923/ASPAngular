@@ -17,6 +17,9 @@ public static class LoggingConfiguration
             .Enrich.FromLogContext().Enrich.WithProperty("Application", "OrderManagement")
             // Exception messages can contain database values. The exception middleware logs safe type/trace summaries.
             .Filter.ByExcluding(e => e.Exception != null);
+        // Allow narrowly scoped proxy diagnostics without enabling request/body logging.
+        if (Enum.TryParse<LogEventLevel>(config["Logging:LogLevel:Microsoft.AspNetCore.HttpOverrides"], true, out var proxyLevel))
+            logger.MinimumLevel.Override("Microsoft.AspNetCore.HttpOverrides", proxyLevel);
         if (config.GetValue("Observability:Console:Enabled", true))
             logger.WriteTo.Console(new JsonFormatter(renderMessage: true));
         // Daily/size rollover and retention bound file growth. A persistent volume/mount
