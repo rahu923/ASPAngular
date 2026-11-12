@@ -173,6 +173,15 @@ if (migrate)
 }
 // Must run before HTTPS/authentication: only configured trusted proxies may establish
 // the original scheme/IP. Trusting arbitrary forwarded headers permits caller spoofing.
+// Capture the transport peer before forwarded headers replace RemoteIpAddress.
+// Log only redirect diagnostics, never header values, cookies or connection strings.
+app.Use(async (context, next) =>
+{
+    var transportPeer = context.Connection.RemoteIpAddress;
+    await next();
+    if (context.Response.StatusCode == StatusCodes.Status307TemporaryRedirect && !context.Request.IsHttps)
+        app.Logger.LogWarning("HTTPS redirect issued with HTTP scheme after forwarded headers. Transport proxy: {TransportProxy}. Configure this verified hosting proxy in ReverseProxy:KnownProxies if it is trusted.", transportPeer);
+});
 app.UseForwardedHeaders();
 app.UseExceptionHandler(error => error.Run(async context =>
 {
